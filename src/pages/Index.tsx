@@ -4,6 +4,7 @@ import ChatSidebar from '@/components/ChatSidebar';
 import ChatArea from '@/components/ChatArea';
 import CustomerProfile from '@/components/CustomerProfile';
 import NotificationCenter from '@/components/NotificationCenter';
+import QueueTabs from '@/components/QueueTabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Settings, Users, BarChart3, User } from 'lucide-react';
@@ -19,6 +20,7 @@ const mockConversations = [
     unreadCount: 3,
     channel: 'whatsapp' as const,
     status: 'online' as const,
+    queueStatus: 'waiting' as const,
   },
   {
     id: '2',
@@ -29,6 +31,7 @@ const mockConversations = [
     unreadCount: 0,
     channel: 'instagram' as const,
     status: 'offline' as const,
+    queueStatus: 'assigned' as const,
   },
   {
     id: '3',
@@ -39,6 +42,7 @@ const mockConversations = [
     unreadCount: 1,
     channel: 'whatsapp' as const,
     status: 'online' as const,
+    queueStatus: 'waiting' as const,
   },
   {
     id: '4',
@@ -49,6 +53,7 @@ const mockConversations = [
     unreadCount: 2,
     channel: 'instagram' as const,
     status: 'offline' as const,
+    queueStatus: 'all' as const,
   },
 ];
 
@@ -123,6 +128,7 @@ const Index = () => {
   const [conversations, setConversations] = useState(mockConversations);
   const [messages, setMessages] = useState(mockMessages);
   const [notifications, setNotifications] = useState(mockNotifications);
+  const [activeQueue, setActiveQueue] = useState<'waiting' | 'assigned' | 'all'>('waiting');
 
   const handleSelectConversation = (id: string) => {
     setActiveConversation(id);
@@ -136,7 +142,7 @@ const Index = () => {
       content,
       timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       sender: 'user' as const,
-      status: 'sent' as const,
+      status: 'delivered' as const,
       type: 'text' as const,
     };
     setMessages([...messages, newMessage]);
@@ -155,6 +161,12 @@ const Index = () => {
   const handleDismissNotification = (id: string) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
+
+  const filteredConversations = conversations.filter(conversation => {
+    if (activeQueue === 'waiting') return conversation.queueStatus === 'waiting';
+    if (activeQueue === 'assigned') return conversation.queueStatus === 'assigned';
+    return true; // 'all' shows everything
+  });
 
   const activeCustomer = activeConversation ? mockCustomer : null;
 
@@ -206,11 +218,23 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        <ChatSidebar
-          conversations={conversations}
-          activeConversation={activeConversation}
-          onSelectConversation={handleSelectConversation}
-        />
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+          <QueueTabs
+            activeQueue={activeQueue}
+            onQueueChange={setActiveQueue}
+            counts={{
+              waiting: conversations.filter(c => c.queueStatus === 'waiting').length,
+              assigned: conversations.filter(c => c.queueStatus === 'assigned').length,
+              all: conversations.length,
+            }}
+          />
+          
+          <ChatSidebar
+            conversations={filteredConversations}
+            activeConversation={activeConversation}
+            onSelectConversation={handleSelectConversation}
+          />
+        </div>
         
         <ChatArea
           customer={activeCustomer}
@@ -243,7 +267,7 @@ const Index = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            <span>{conversations.length} conversas ativas</span>
+            <span>{filteredConversations.length} conversas ativas</span>
             <span>Última sincronização: agora</span>
           </div>
         </div>

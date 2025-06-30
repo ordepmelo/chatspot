@@ -2,9 +2,8 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageCircle, Instagram, Search, Plus } from 'lucide-react';
+import { MessageCircle, Instagram, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 
 interface Conversation {
   id: string;
@@ -15,6 +14,7 @@ interface Conversation {
   unreadCount: number;
   channel: 'whatsapp' | 'instagram';
   status: 'online' | 'offline';
+  queueStatus?: 'waiting' | 'assigned' | 'all';
 }
 
 interface ChatSidebarProps {
@@ -47,18 +47,9 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }
   };
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold text-gray-800">Conversas</h1>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Nova
-          </Button>
-        </div>
-        
-        {/* Search */}
+    <div className="flex flex-col h-full">
+      {/* Search */}
+      <div className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input 
@@ -70,56 +61,62 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }
 
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
-        {conversations.map((conversation) => (
-          <div
-            key={conversation.id}
-            onClick={() => onSelectConversation(conversation.id)}
-            className={`p-4 border-b border-gray-100 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
-              activeConversation === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-            }`}
-          >
-            <div className="flex items-start space-x-3">
-              <div className="relative">
-                <Avatar className="w-12 h-12">
-                  <AvatarImage src={conversation.avatar} alt={conversation.name} />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                    {conversation.name.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ${getChannelColor(conversation.channel)}`}>
-                  {getChannelIcon(conversation.channel)}
-                </div>
-                {conversation.status === 'online' && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
-                )}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-semibold text-sm text-gray-900 truncate">
-                    {conversation.name}
-                  </h3>
-                  <span className="text-xs text-gray-500">{conversation.timestamp}</span>
-                </div>
-                
-                <p className="text-sm text-gray-600 truncate mb-2">
-                  {conversation.lastMessage}
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400 capitalize">
-                    {conversation.channel}
-                  </span>
-                  {conversation.unreadCount > 0 && (
-                    <Badge className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 text-xs rounded-full">
-                      {conversation.unreadCount}
-                    </Badge>
+        {conversations.length === 0 ? (
+          <div className="p-4 text-center text-gray-500 text-sm">
+            Nenhuma conversa encontrada
+          </div>
+        ) : (
+          conversations.map((conversation) => (
+            <div
+              key={conversation.id}
+              onClick={() => onSelectConversation(conversation.id)}
+              className={`p-4 border-b border-gray-100 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
+                activeConversation === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+              }`}
+            >
+              <div className="flex items-start space-x-3">
+                <div className="relative">
+                  <Avatar className="w-12 h-12">
+                    <AvatarImage src={conversation.avatar} alt={conversation.name} />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                      {conversation.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ${getChannelColor(conversation.channel)}`}>
+                    {getChannelIcon(conversation.channel)}
+                  </div>
+                  {conversation.status === 'online' && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
                   )}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold text-sm text-gray-900 truncate">
+                      {conversation.name}
+                    </h3>
+                    <span className="text-xs text-gray-500">{conversation.timestamp}</span>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 truncate mb-2">
+                    {conversation.lastMessage}
+                  </p>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400 capitalize">
+                      {conversation.channel}
+                    </span>
+                    {conversation.unreadCount > 0 && (
+                      <Badge className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 text-xs rounded-full">
+                        {conversation.unreadCount}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Status Bar */}
