@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, Users } from 'lucide-react';
@@ -17,7 +16,7 @@ const QueueTabs = ({ activeQueue, onQueueChange, counts }: QueueTabsProps) => {
   const tabs = [
     {
       id: 'waiting' as const,
-      label: 'Aguardando Atendimento',
+      label: 'Aguardando',
       icon: Clock,
       count: counts.waiting,
       color: 'bg-orange-500',
@@ -27,7 +26,7 @@ const QueueTabs = ({ activeQueue, onQueueChange, counts }: QueueTabsProps) => {
     },
     {
       id: 'assigned' as const,
-      label: 'Meus Atendimentos',
+      label: 'Atendimento',
       icon: User,
       count: counts.assigned,
       color: 'bg-blue-500',
@@ -37,7 +36,7 @@ const QueueTabs = ({ activeQueue, onQueueChange, counts }: QueueTabsProps) => {
     },
     {
       id: 'all' as const,
-      label: 'Todos Atendimentos',
+      label: 'Todos',
       icon: Users,
       count: counts.all,
       color: 'bg-gray-500',
