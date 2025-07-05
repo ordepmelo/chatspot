@@ -9,8 +9,20 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Settings, Users, BarChart3, User } from 'lucide-react';
 
+interface Conversation {
+  id: string;
+  name: string;
+  avatar: string;
+  lastMessage: string;
+  timestamp: string;
+  unreadCount: number;
+  channel: 'whatsapp' | 'instagram';
+  status: 'online' | 'offline';
+  queueStatus: 'waiting' | 'assigned' | 'all';
+}
+
 // Mock data
-const mockConversations = [
+const mockConversations: Conversation[] = [
   {
     id: '1',
     name: 'Maria Silva',
@@ -18,9 +30,9 @@ const mockConversations = [
     lastMessage: 'Olá, gostaria de saber sobre os produtos...',
     timestamp: '14:32',
     unreadCount: 3,
-    channel: 'whatsapp' as const,
-    status: 'online' as const,
-    queueStatus: 'waiting' as const,
+    channel: 'whatsapp',
+    status: 'online',
+    queueStatus: 'waiting',
   },
   {
     id: '2',
@@ -29,9 +41,9 @@ const mockConversations = [
     lastMessage: 'Obrigado pelo atendimento!',
     timestamp: '14:15',
     unreadCount: 0,
-    channel: 'instagram' as const,
-    status: 'offline' as const,
-    queueStatus: 'assigned' as const,
+    channel: 'instagram',
+    status: 'offline',
+    queueStatus: 'assigned',
   },
   {
     id: '3',
@@ -40,9 +52,9 @@ const mockConversations = [
     lastMessage: 'Quando vocês fazem entrega?',
     timestamp: '13:45',
     unreadCount: 1,
-    channel: 'whatsapp' as const,
-    status: 'online' as const,
-    queueStatus: 'waiting' as const,
+    channel: 'whatsapp',
+    status: 'online',
+    queueStatus: 'waiting',
   },
   {
     id: '4',
@@ -51,9 +63,9 @@ const mockConversations = [
     lastMessage: 'Vi a promoção no Instagram...',
     timestamp: '13:22',
     unreadCount: 2,
-    channel: 'instagram' as const,
-    status: 'offline' as const,
-    queueStatus: 'all' as const,
+    channel: 'instagram',
+    status: 'offline',
+    queueStatus: 'all',
   },
 ];
 
@@ -162,6 +174,24 @@ const Index = () => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
 
+  const handleAssumeAttendance = (conversationId: string) => {
+    setConversations(prevConversations =>
+      prevConversations.map(conversation =>
+        conversation.id === conversationId
+          ? { ...conversation, queueStatus: 'assigned' as const }
+          : conversation
+      )
+    );
+    // Muda para a aba de atendimento após assumir
+    setActiveQueue('assigned');
+  };
+
+  const handleTransferAttendance = (conversationId: string, userId: string) => {
+    // Por enquanto, mantém na aba de aguardando até que seja implementado o sistema de usuários
+    console.log(`Transferindo conversa ${conversationId} para usuário ${userId}`);
+    // Aqui você pode implementar a lógica de transferência quando o sistema de usuários estiver pronto
+  };
+
   const filteredConversations = conversations.filter(conversation => {
     if (activeQueue === 'waiting') return conversation.queueStatus === 'waiting';
     if (activeQueue === 'assigned') return conversation.queueStatus === 'assigned';
@@ -218,7 +248,7 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+        <div className="w-96 bg-white border-r border-gray-200 flex flex-col h-full">
           <QueueTabs
             activeQueue={activeQueue}
             onQueueChange={setActiveQueue}
@@ -233,6 +263,8 @@ const Index = () => {
             conversations={filteredConversations}
             activeConversation={activeConversation}
             onSelectConversation={handleSelectConversation}
+            onAssumeAttendance={handleAssumeAttendance}
+            onTransferAttendance={handleTransferAttendance}
           />
         </div>
         

@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Instagram, Search, MoreVertical, UserPlus } from 'lucide-react';
+import { MessageCircle, Instagram, Search, MoreVertical, UserPlus, UserCheck, ArrowRightLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import SaveContactModal from './SaveContactModal';
+import TransferAttendanceModal from './TransferAttendanceModal';
 
 interface Conversation {
   id: string;
@@ -24,15 +25,35 @@ interface ChatSidebarProps {
   conversations: Conversation[];
   activeConversation: string | null;
   onSelectConversation: (id: string) => void;
+  onAssumeAttendance?: (conversationId: string) => void;
+  onTransferAttendance?: (conversationId: string, userId: string) => void;
 }
 
-const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }: ChatSidebarProps) => {
+const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, onAssumeAttendance, onTransferAttendance }: ChatSidebarProps) => {
   const [saveContactModalOpen, setSaveContactModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   const handleSaveContact = (conversation: Conversation) => {
     setSelectedConversation(conversation);
     setSaveContactModalOpen(true);
+  };
+
+  const handleTransferAttendance = (conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    setTransferModalOpen(true);
+  };
+
+  const handleAssumeAttendance = (conversation: Conversation) => {
+    if (onAssumeAttendance) {
+      onAssumeAttendance(conversation.id);
+    }
+  };
+
+  const handleTransferConfirm = (conversationId: string, userId: string) => {
+    if (onTransferAttendance) {
+      onTransferAttendance(conversationId, userId);
+    }
   };
 
   const getChannelIcon = (channel: string) => {
@@ -129,6 +150,31 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }
                             <UserPlus className="mr-2 h-4 w-4" />
                             Salvar contato
                           </DropdownMenuItem>
+                          
+                          {conversation.queueStatus === 'waiting' && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAssumeAttendance(conversation);
+                                }}
+                              >
+                                <UserCheck className="mr-2 h-4 w-4" />
+                                Assumir Atendimento
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTransferAttendance(conversation);
+                                }}
+                              >
+                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                Transferir Atendimento
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -175,6 +221,15 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }
         conversationId={selectedConversation?.id || ''}
         conversationName={selectedConversation?.name || ''}
         conversationPhone=""
+      />
+      
+      {/* Transfer Attendance Modal */}
+      <TransferAttendanceModal
+        isOpen={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        conversationId={selectedConversation?.id || ''}
+        conversationName={selectedConversation?.name || ''}
+        onTransfer={handleTransferConfirm}
       />
     </div>
   );
