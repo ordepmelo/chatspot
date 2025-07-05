@@ -2,6 +2,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { MessageCircle, Instagram, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -119,12 +120,16 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }
         )}
       </div>
 
-      {/* Status Bar */}
+      {/* Phone Input */}
       <div className="p-3 border-t border-gray-200 bg-gray-50">
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-          <span>Sistema Online</span>
-          <span className="ml-auto">{conversations.length} conversas</span>
+        <div className="flex items-center space-x-2">
+          <Input 
+            placeholder="DDD + Telefone" 
+            className="flex-1 h-8 text-sm"
+          />
+          <Button size="sm" className="h-8 px-3 text-xs">
+            Iniciar conversa
+          </Button>
         </div>
       </div>
     </div>
