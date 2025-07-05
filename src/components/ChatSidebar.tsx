@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Instagram, Search } from 'lucide-react';
+import { MessageCircle, Instagram, Search, MoreVertical, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import SaveContactModal from './SaveContactModal';
 
 interface Conversation {
   id: string;
@@ -25,6 +27,14 @@ interface ChatSidebarProps {
 }
 
 const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }: ChatSidebarProps) => {
+  const [saveContactModalOpen, setSaveContactModalOpen] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+
+  const handleSaveContact = (conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    setSaveContactModalOpen(true);
+  };
+
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'whatsapp':
@@ -96,7 +106,32 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }
                     <h3 className="font-semibold text-sm text-gray-900 truncate">
                       {conversation.name}
                     </h3>
-                    <span className="text-xs text-gray-500">{conversation.timestamp}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500">{conversation.timestamp}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 hover:bg-gray-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveContact(conversation);
+                            }}
+                          >
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Salvar contato
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   
                   <p className="text-sm text-gray-600 truncate mb-2">
@@ -132,6 +167,15 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation }
           </Button>
         </div>
       </div>
+
+      {/* Save Contact Modal */}
+      <SaveContactModal
+        isOpen={saveContactModalOpen}
+        onClose={() => setSaveContactModalOpen(false)}
+        conversationId={selectedConversation?.id || ''}
+        conversationName={selectedConversation?.name || ''}
+        conversationPhone=""
+      />
     </div>
   );
 };
