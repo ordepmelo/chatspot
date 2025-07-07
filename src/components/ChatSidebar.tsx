@@ -77,7 +77,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .from('contacts')
         .insert({
           phone: phoneNumber,
-          first_name: `Contato ${phoneNumber}`,
+          first_name: phoneNumber, // Nome será o próprio número até ser editado
           account_id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' // Account padrão
         })
         .select()
@@ -136,7 +136,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
       // Criar nova conversa para a UI
       const newConversation: Conversation = {
         id: conversationData.id,
-        name: `Contato ${phoneNumber}`,
+        name: phoneNumber, // Nome será apenas o número de telefone
         lastMessage: 'Nova conversa iniciada',
         timestamp: 'agora',
         unreadCount: 0,
