@@ -151,18 +151,20 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
                             Salvar contato
                           </DropdownMenuItem>
                           
-                          {conversation.queueStatus === 'waiting' && (
+                          {(conversation.queueStatus === 'waiting' || conversation.queueStatus === 'assigned') && (
                             <>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAssumeAttendance(conversation);
-                                }}
-                              >
-                                <UserCheck className="mr-2 h-4 w-4" />
-                                Assumir Atendimento
-                              </DropdownMenuItem>
+                              {conversation.queueStatus === 'waiting' && (
+                                <DropdownMenuItem 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAssumeAttendance(conversation);
+                                  }}
+                                >
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Assumir Atendimento
+                                </DropdownMenuItem>
+                              )}
                               
                               <DropdownMenuItem 
                                 onClick={(e) => {
