@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import SaveContactModal from './SaveContactModal';
 import TransferAttendanceModal from './TransferAttendanceModal';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Conversation {
   id: string;
@@ -27,12 +29,15 @@ interface ChatSidebarProps {
   onSelectConversation: (id: string) => void;
   onAssumeAttendance?: (conversationId: string) => void;
   onTransferAttendance?: (conversationId: string, userId: string) => void;
+  onNewConversation?: (conversation: Conversation) => void;
 }
 
-const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, onAssumeAttendance, onTransferAttendance }: ChatSidebarProps) => {
+const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, onAssumeAttendance, onTransferAttendance, onNewConversation }: ChatSidebarProps) => {
   const [saveContactModalOpen, setSaveContactModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const { toast } = useToast();
 
   const handleSaveContact = (conversation: Conversation) => {
     setSelectedConversation(conversation);
@@ -53,6 +58,110 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
   const handleTransferConfirm = (conversationId: string, userId: string) => {
     if (onTransferAttendance) {
       onTransferAttendance(conversationId, userId);
+    }
+  };
+
+  const handleStartConversation = async () => {
+    if (!phoneNumber.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, digite um número de telefone",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Criar contato primeiro
+      const { data: contactData, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          phone: phoneNumber,
+          first_name: `Contato ${phoneNumber}`,
+          account_id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' // Account padrão
+        })
+        .select()
+        .single();
+
+      if (contactError) {
+        console.error('Erro ao criar contato:', contactError);
+        toast({
+          title: "Erro",
+          description: "Erro ao criar contato",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Buscar inbox padrão do WhatsApp
+      const { data: inboxData, error: inboxError } = await supabase
+        .from('inboxes')
+        .select('*')
+        .eq('channel_type', 'whatsapp')
+        .eq('account_id', 'f47ac10b-58cc-4372-a567-0e02b2c3d479')
+        .single();
+
+      if (inboxError) {
+        console.error('Erro ao buscar inbox:', inboxError);
+        toast({
+          title: "Erro",
+          description: "Erro ao buscar inbox",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Criar conversa
+      const { data: conversationData, error: conversationError } = await supabase
+        .from('conversations')
+        .insert({
+          contact_id: contactData.id,
+          inbox_id: inboxData.id,
+          account_id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+          status: 'assigned' // Status em atendimento
+        })
+        .select()
+        .single();
+
+      if (conversationError) {
+        console.error('Erro ao criar conversa:', conversationError);
+        toast({
+          title: "Erro",
+          description: "Erro ao criar conversa",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Criar nova conversa para a UI
+      const newConversation: Conversation = {
+        id: conversationData.id,
+        name: `Contato ${phoneNumber}`,
+        lastMessage: 'Nova conversa iniciada',
+        timestamp: 'agora',
+        unreadCount: 0,
+        channel: 'whatsapp',
+        status: 'online',
+        queueStatus: 'assigned'
+      };
+
+      if (onNewConversation) {
+        onNewConversation(newConversation);
+      }
+
+      setPhoneNumber('');
+      toast({
+        title: "Sucesso",
+        description: "Conversa iniciada com sucesso",
+      });
+
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao iniciar conversa",
+        variant: "destructive",
+      });
     }
   };
 
@@ -209,8 +318,14 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
           <Input 
             placeholder="DDD + Telefone" 
             className="flex-1 h-8 text-sm"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
           />
-          <Button size="sm" className="h-8 px-3 text-xs">
+          <Button 
+            size="sm" 
+            className="h-8 px-3 text-xs"
+            onClick={handleStartConversation}
+          >
             Iniciar conversa
           </Button>
         </div>

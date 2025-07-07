@@ -141,6 +141,7 @@ const Index = () => {
   const [messages, setMessages] = useState(mockMessages);
   const [notifications, setNotifications] = useState(mockNotifications);
   const [activeQueue, setActiveQueue] = useState<'waiting' | 'assigned' | 'all'>('waiting');
+  const [currentQueueFilter, setCurrentQueueFilter] = useState<'waiting' | 'assigned' | 'all'>('waiting');
 
   const handleSelectConversation = (id: string) => {
     setActiveConversation(id);
@@ -265,6 +266,22 @@ const Index = () => {
             onSelectConversation={handleSelectConversation}
             onAssumeAttendance={handleAssumeAttendance}
             onTransferAttendance={handleTransferAttendance}
+            onNewConversation={(newConversation) => {
+              const conversation: Conversation = {
+                id: newConversation.id,
+                name: newConversation.name,
+                avatar: '',
+                lastMessage: newConversation.lastMessage,
+                timestamp: newConversation.timestamp,
+                unreadCount: newConversation.unreadCount,
+                channel: newConversation.channel,
+                status: newConversation.status,
+                queueStatus: 'assigned'
+              };
+              setConversations(prev => [conversation, ...prev]);
+              setActiveConversation(newConversation.id);
+              setActiveQueue('assigned');
+            }}
           />
         </div>
         
