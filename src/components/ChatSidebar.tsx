@@ -78,7 +78,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .insert({
           phone: phoneNumber,
           first_name: phoneNumber, // Nome será o próprio número até ser editado
-          account_id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' // Account padrão
+          account_id: '00000000-0000-0000-0000-000000000000' // Account padrão
         })
         .select()
         .single();
@@ -98,7 +98,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .from('inboxes')
         .select('*')
         .eq('channel_type', 'whatsapp')
-        .eq('account_id', 'f47ac10b-58cc-4372-a567-0e02b2c3d479')
+        .eq('account_id', '00000000-0000-0000-0000-000000000000')
         .single();
 
       if (inboxError) {
@@ -117,7 +117,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .insert({
           contact_id: contactData.id,
           inbox_id: inboxData.id,
-          account_id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+          account_id: '00000000-0000-0000-0000-000000000000',
           status: 'assigned' // Status em atendimento
         })
         .select()
