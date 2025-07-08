@@ -73,6 +73,8 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
     }
 
     try {
+      console.log('Iniciando conversa com:', phoneNumber.trim());
+
       // Primeiro, verificar se já existe um contato com esse número
       const { data: existingContact, error: searchError } = await supabase
         .from('contacts')
@@ -80,6 +82,8 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .eq('phone', phoneNumber.trim())
         .eq('account_id', '00000000-0000-0000-0000-000000000000')
         .maybeSingle();
+
+      console.log('Resultado busca contato:', { existingContact, searchError });
 
       if (searchError) {
         console.error('Erro ao buscar contato existente:', searchError);
@@ -100,6 +104,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
           description: `Iniciando conversa com ${contactName}`,
         });
       } else {
+        console.log('Criando novo contato...');
         // Criar novo contato com o número como nome
         const { data: newContact, error: contactError } = await supabase
           .from('contacts')
@@ -111,11 +116,13 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
           .select()
           .single();
 
+        console.log('Resultado criação contato:', { newContact, contactError });
+
         if (contactError) {
           console.error('Erro ao criar contato:', contactError);
           toast({
             title: "Erro",
-            description: "Erro ao criar contato",
+            description: `Erro ao criar contato: ${contactError.message}`,
             variant: "destructive",
           });
           return;
@@ -136,13 +143,18 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .select('*')
         .eq('channel_type', 'whatsapp')
         .eq('account_id', '00000000-0000-0000-0000-000000000000')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
+
+      console.log('Inbox data:', inboxData);
+      console.log('Inbox error:', inboxError);
 
       if (inboxError || !inboxData) {
         console.error('Erro ao buscar inbox:', inboxError);
         toast({
           title: "Erro",
-          description: "Erro ao buscar inbox",
+          description: "Erro ao buscar inbox do WhatsApp. Verifique a configuração.",
           variant: "destructive",
         });
         return;
