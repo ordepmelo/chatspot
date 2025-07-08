@@ -73,25 +73,61 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
     }
 
     try {
-      // Criar contato primeiro
-      const { data: contactData, error: contactError } = await supabase
+      // Primeiro, verificar se já existe um contato com esse número
+      const { data: existingContact, error: searchError } = await supabase
         .from('contacts')
-        .insert({
-          phone: phoneNumber,
-          first_name: phoneNumber, // Nome será o próprio número até ser editado
-          account_id: '00000000-0000-0000-0000-000000000000' // Account padrão
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('phone', phoneNumber.trim())
+        .eq('account_id', '00000000-0000-0000-0000-000000000000')
+        .maybeSingle();
 
-      if (contactError) {
-        console.error('Erro ao criar contato:', contactError);
+      if (searchError) {
+        console.error('Erro ao buscar contato existente:', searchError);
+      }
+
+      let contactData;
+      let contactName;
+
+      if (existingContact) {
+        // Usar contato existente
+        contactData = existingContact;
+        contactName = existingContact.last_name 
+          ? `${existingContact.first_name} ${existingContact.last_name}`
+          : existingContact.first_name;
+        
         toast({
-          title: "Erro",
-          description: "Erro ao criar contato",
-          variant: "destructive",
+          title: "Contato encontrado",
+          description: `Iniciando conversa com ${contactName}`,
         });
-        return;
+      } else {
+        // Criar novo contato com o número como nome
+        const { data: newContact, error: contactError } = await supabase
+          .from('contacts')
+          .insert({
+            phone: phoneNumber.trim(),
+            first_name: phoneNumber.trim(), // Nome será o próprio número até ser editado
+            account_id: '00000000-0000-0000-0000-000000000000'
+          })
+          .select()
+          .single();
+
+        if (contactError) {
+          console.error('Erro ao criar contato:', contactError);
+          toast({
+            title: "Erro",
+            description: "Erro ao criar contato",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        contactData = newContact;
+        contactName = phoneNumber.trim();
+        
+        toast({
+          title: "Novo contato criado",
+          description: `Contato criado para ${phoneNumber.trim()}`,
+        });
       }
 
       // Buscar inbox padrão do WhatsApp
@@ -102,7 +138,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .eq('account_id', '00000000-0000-0000-0000-000000000000')
         .maybeSingle();
 
-      if (inboxError) {
+      if (inboxError || !inboxData) {
         console.error('Erro ao buscar inbox:', inboxError);
         toast({
           title: "Erro",
@@ -112,38 +148,65 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         return;
       }
 
-      // Criar conversa
-      const { data: conversationData, error: conversationError } = await supabase
+      // Verificar se já existe uma conversa ativa com este contato
+      const { data: existingConversation, error: conversationSearchError } = await supabase
         .from('conversations')
-        .insert({
-          contact_id: contactData.id,
-          inbox_id: inboxData?.id || '11111111-1111-1111-1111-111111111111',
-          account_id: '00000000-0000-0000-0000-000000000000',
-          status: 'assigned' // Status em atendimento
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('contact_id', contactData.id)
+        .eq('inbox_id', inboxData.id)
+        .eq('account_id', '00000000-0000-0000-0000-000000000000')
+        .maybeSingle();
 
-      if (conversationError) {
-        console.error('Erro ao criar conversa:', conversationError);
+      if (conversationSearchError) {
+        console.error('Erro ao buscar conversa existente:', conversationSearchError);
+      }
+
+      let conversationData;
+
+      if (existingConversation) {
+        // Usar conversa existente
+        conversationData = existingConversation;
+        
         toast({
-          title: "Erro",
-          description: "Erro ao criar conversa",
-          variant: "destructive",
+          title: "Conversa existente",
+          description: "Redirecionando para conversa existente",
         });
-        return;
+      } else {
+        // Criar nova conversa
+        const { data: newConversation, error: conversationError } = await supabase
+          .from('conversations')
+          .insert({
+            contact_id: contactData.id,
+            inbox_id: inboxData.id,
+            account_id: '00000000-0000-0000-0000-000000000000',
+            status: 'assigned' // Status em atendimento
+          })
+          .select()
+          .single();
+
+        if (conversationError) {
+          console.error('Erro ao criar conversa:', conversationError);
+          toast({
+            title: "Erro",
+            description: "Erro ao criar conversa",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        conversationData = newConversation;
       }
 
       // Criar nova conversa para a UI
-      const newConversation: Conversation = {
+      const newConversation = {
         id: conversationData.id,
-        name: phoneNumber, // Nome será apenas o número de telefone
-        lastMessage: 'Nova conversa iniciada',
+        name: contactName,
+        lastMessage: existingConversation ? 'Conversa retomada' : 'Nova conversa iniciada',
         timestamp: 'agora',
         unreadCount: 0,
-        channel: 'whatsapp',
-        status: 'online',
-        queueStatus: 'assigned'
+        channel: 'whatsapp' as const,
+        status: 'online' as const,
+        queueStatus: 'assigned' as const
       };
 
       if (onNewConversation) {
@@ -151,10 +214,13 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
       }
 
       setPhoneNumber('');
-      toast({
-        title: "Sucesso",
-        description: "Conversa iniciada com sucesso",
-      });
+      
+      if (!existingConversation) {
+        toast({
+          title: "Sucesso",
+          description: "Conversa iniciada com sucesso",
+        });
+      }
 
     } catch (error) {
       console.error('Erro inesperado:', error);
