@@ -99,7 +99,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .select('*')
         .eq('channel_type', 'whatsapp')
         .eq('account_id', '00000000-0000-0000-0000-000000000000')
-        .single();
+        .maybeSingle();
 
       if (inboxError) {
         console.error('Erro ao buscar inbox:', inboxError);
@@ -116,7 +116,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         .from('conversations')
         .insert({
           contact_id: contactData.id,
-          inbox_id: inboxData.id,
+          inbox_id: inboxData?.id || '11111111-1111-1111-1111-111111111111',
           account_id: '00000000-0000-0000-0000-000000000000',
           status: 'assigned' // Status em atendimento
         })
