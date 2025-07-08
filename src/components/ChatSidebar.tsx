@@ -30,9 +30,10 @@ interface ChatSidebarProps {
   onAssumeAttendance?: (conversationId: string) => void;
   onTransferAttendance?: (conversationId: string, userId: string) => void;
   onNewConversation?: (conversation: Conversation) => void;
+  onUpdateConversation?: (conversationId: string, updatedData: Partial<Conversation>) => void;
 }
 
-const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, onAssumeAttendance, onTransferAttendance, onNewConversation }: ChatSidebarProps) => {
+const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, onAssumeAttendance, onTransferAttendance, onNewConversation, onUpdateConversation }: ChatSidebarProps) => {
   const [saveContactModalOpen, setSaveContactModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -257,7 +258,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
                             }}
                           >
                             <UserPlus className="mr-2 h-4 w-4" />
-                            Salvar contato
+                            Salvar/Editar Contato
                           </DropdownMenuItem>
                           
                           {(conversation.queueStatus === 'waiting' || conversation.queueStatus === 'assigned') && (
@@ -338,6 +339,11 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         conversationId={selectedConversation?.id || ''}
         conversationName={selectedConversation?.name || ''}
         conversationPhone=""
+        onContactUpdated={(conversationId, contactName) => {
+          if (onUpdateConversation) {
+            onUpdateConversation(conversationId, { name: contactName });
+          }
+        }}
       />
       
       {/* Transfer Attendance Modal */}

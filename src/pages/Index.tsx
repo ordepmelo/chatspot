@@ -187,6 +187,16 @@ const Index = () => {
     setActiveQueue('assigned');
   };
 
+  const handleUpdateConversation = (conversationId: string, updatedData: Partial<Conversation>) => {
+    setConversations(prevConversations =>
+      prevConversations.map(conversation =>
+        conversation.id === conversationId
+          ? { ...conversation, ...updatedData }
+          : conversation
+      )
+    );
+  };
+
   const handleTransferAttendance = (conversationId: string, userId: string) => {
     // Por enquanto, mantém na aba de aguardando até que seja implementado o sistema de usuários
     console.log(`Transferindo conversa ${conversationId} para usuário ${userId}`);
@@ -266,6 +276,7 @@ const Index = () => {
             onSelectConversation={handleSelectConversation}
             onAssumeAttendance={handleAssumeAttendance}
             onTransferAttendance={handleTransferAttendance}
+            onUpdateConversation={handleUpdateConversation}
             onNewConversation={(newConversation) => {
               const conversation: Conversation = {
                 id: newConversation.id,

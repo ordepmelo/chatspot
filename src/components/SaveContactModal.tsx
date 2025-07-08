@@ -14,9 +14,10 @@ interface SaveContactModalProps {
   conversationId: string;
   conversationName: string;
   conversationPhone?: string;
+  onContactUpdated?: (conversationId: string, contactName: string) => void;
 }
 
-const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, conversationPhone }: SaveContactModalProps) => {
+const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, conversationPhone, onContactUpdated }: SaveContactModalProps) => {
   const [formData, setFormData] = useState({
     firstName: conversationName || '',
     lastName: '',
@@ -144,6 +145,14 @@ const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, c
         title: "Sucesso",
         description: `Contato ${operationType} com sucesso!`
       });
+
+      // Chamar callback para atualizar o nome na conversa se existir
+      if (onContactUpdated && conversationId && contact) {
+        const fullName = contact.last_name 
+          ? `${contact.first_name} ${contact.last_name}` 
+          : contact.first_name;
+        onContactUpdated(conversationId, fullName);
+      }
 
       onClose();
       
