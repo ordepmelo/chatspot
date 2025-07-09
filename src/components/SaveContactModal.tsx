@@ -116,92 +116,135 @@ const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, c
     setLoading(true);
     
     try {
-      // Verificar se já existe um contato com esse telefone
-      const { data: existingContact, error: searchError } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('phone', formData.phone)
-        .maybeSingle();
-
-      if (searchError) {
-        console.error('Erro ao buscar contato:', searchError);
-      }
-
       let contact;
       let operationType = '';
 
-      if (existingContact) {
-        // Atualizar contato existente
-        const { data: updatedContact, error: updateError } = await supabase
-          .from('contacts')
-          .update({
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            email: formData.email || null,
-            city: formData.city || null,
-            country: formData.country || null,
-            biography: formData.biography || null,
-            company: formData.company || null,
-            cnpj: formData.cnpj || null,
-            instagram: formData.instagram || null,
-            facebook: formData.facebook || null,
-            linkedin: formData.linkedin || null,
-            other_social: formData.otherSocial || null,
-          })
-          .eq('id', existingContact.id)
-          .select()
+      // Se temos um conversationId, vamos buscar o contato da conversa
+      if (conversationId) {
+        const { data: conversation, error: conversationError } = await supabase
+          .from('conversations')
+          .select('contact_id, contacts(*)')
+          .eq('id', conversationId)
           .single();
 
-        if (updateError) throw updateError;
-        contact = updatedContact;
-        operationType = 'atualizado';
+        if (conversationError) {
+          console.error('Erro ao buscar conversa:', conversationError);
+          throw conversationError;
+        }
+
+        if (conversation?.contact_id) {
+          // Atualizar contato existente da conversa
+          const { data: updatedContact, error: updateError } = await supabase
+            .from('contacts')
+            .update({
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              email: formData.email || null,
+              phone: formData.phone,
+              city: formData.city || null,
+              country: formData.country || null,
+              biography: formData.biography || null,
+              company: formData.company || null,
+              cnpj: formData.cnpj || null,
+              instagram: formData.instagram || null,
+              facebook: formData.facebook || null,
+              linkedin: formData.linkedin || null,
+              other_social: formData.otherSocial || null,
+            })
+            .eq('id', conversation.contact_id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          contact = updatedContact;
+          operationType = 'atualizado';
+        }
       } else {
-        // Criar novo contato
-        const { data: newContact, error: insertError } = await supabase
+        // Verificar se já existe um contato com esse telefone
+        const { data: existingContact, error: searchError } = await supabase
           .from('contacts')
-          .insert({
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            email: formData.email || null,
-            phone: formData.phone,
-            city: formData.city || null,
-            country: formData.country || null,
-            biography: formData.biography || null,
-            company: formData.company || null,
-            cnpj: formData.cnpj || null,
-            instagram: formData.instagram || null,
-            facebook: formData.facebook || null,
-            linkedin: formData.linkedin || null,
-            other_social: formData.otherSocial || null,
-            account_id: '00000000-0000-0000-0000-000000000000'
-          })
-          .select()
-          .single();
+          .select('*')
+          .eq('phone', formData.phone)
+          .eq('account_id', '00000000-0000-0000-0000-000000000000')
+          .maybeSingle();
 
-        if (insertError) throw insertError;
-        contact = newContact;
-        operationType = 'salvo';
+        if (searchError) {
+          console.error('Erro ao buscar contato:', searchError);
+        }
 
-        // Se não há conversa vinculada, criar uma nova
-        if (!conversationId) {
-          // Buscar inbox padrão do WhatsApp
-          const { data: inboxData } = await supabase
-            .from('inboxes')
-            .select('*')
-            .eq('channel_type', 'whatsapp')
-            .eq('account_id', '00000000-0000-0000-0000-000000000000')
-            .maybeSingle();
+        if (existingContact) {
+          // Atualizar contato existente
+          const { data: updatedContact, error: updateError } = await supabase
+            .from('contacts')
+            .update({
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              email: formData.email || null,
+              city: formData.city || null,
+              country: formData.country || null,
+              biography: formData.biography || null,
+              company: formData.company || null,
+              cnpj: formData.cnpj || null,
+              instagram: formData.instagram || null,
+              facebook: formData.facebook || null,
+              linkedin: formData.linkedin || null,
+              other_social: formData.otherSocial || null,
+            })
+            .eq('id', existingContact.id)
+            .select()
+            .single();
 
-          if (inboxData) {
-            // Criar nova conversa
-            await supabase
-              .from('conversations')
-              .insert({
-                contact_id: contact.id,
-                inbox_id: inboxData.id,
-                account_id: '00000000-0000-0000-0000-000000000000',
-                status: 'assigned'
-              });
+          if (updateError) throw updateError;
+          contact = updatedContact;
+          operationType = 'atualizado';
+        } else {
+          // Criar novo contato
+          const { data: newContact, error: insertError } = await supabase
+            .from('contacts')
+            .insert({
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              email: formData.email || null,
+              phone: formData.phone,
+              city: formData.city || null,
+              country: formData.country || null,
+              biography: formData.biography || null,
+              company: formData.company || null,
+              cnpj: formData.cnpj || null,
+              instagram: formData.instagram || null,
+              facebook: formData.facebook || null,
+              linkedin: formData.linkedin || null,
+              other_social: formData.otherSocial || null,
+              account_id: '00000000-0000-0000-0000-000000000000'
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          contact = newContact;
+          operationType = 'salvo';
+
+          // Se não há conversa vinculada, criar uma nova
+          if (!conversationId) {
+            // Buscar inbox padrão do WhatsApp
+            const { data: inboxData } = await supabase
+              .from('inboxes')
+              .select('*')
+              .eq('channel_type', 'whatsapp')
+              .eq('account_id', '00000000-0000-0000-0000-000000000000')
+              .maybeSingle();
+
+            if (inboxData) {
+              // Criar nova conversa
+              await supabase
+                .from('conversations')
+                .insert({
+                  contact_id: contact.id,
+                  inbox_id: inboxData.id,
+                  account_id: '00000000-0000-0000-0000-000000000000',
+                  status: 'assigned'
+                });
+            }
           }
         }
       }
