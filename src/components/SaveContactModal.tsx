@@ -34,7 +34,72 @@ const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, c
     otherSocial: ''
   });
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
   const { toast } = useToast();
+
+  // Carregar dados do contato quando o modal abrir
+  React.useEffect(() => {
+    const loadContactData = async () => {
+      if (!isOpen || !conversationId) return;
+
+      setLoadingData(true);
+      try {
+        // Buscar conversa e contato associado
+        const { data: conversation, error: conversationError } = await supabase
+          .from('conversations')
+          .select(`
+            contact_id,
+            contacts (
+              first_name,
+              last_name,
+              email,
+              phone,
+              city,
+              country,
+              biography,
+              company,
+              cnpj,
+              instagram,
+              facebook,
+              linkedin,
+              other_social
+            )
+          `)
+          .eq('id', conversationId)
+          .single();
+
+        if (conversationError) {
+          console.error('Erro ao buscar conversa:', conversationError);
+          return;
+        }
+
+        if (conversation?.contacts) {
+          const contact = conversation.contacts;
+          setFormData({
+            firstName: contact.first_name || '',
+            lastName: contact.last_name || '',
+            email: contact.email || '',
+            phone: contact.phone || '',
+            city: contact.city || '',
+            country: contact.country || 'Brasil',
+            biography: contact.biography || '',
+            company: contact.company || '',
+            cnpj: contact.cnpj || '',
+            instagram: contact.instagram || '',
+            facebook: contact.facebook || '',
+            linkedin: contact.linkedin || '',
+            otherSocial: contact.other_social || ''
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do contato:', error);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    loadContactData();
+  }, [isOpen, conversationId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
