@@ -8,6 +8,8 @@ import QueueTabs from '@/components/QueueTabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Settings, Users, BarChart3, User } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Conversation {
   id: string;
@@ -135,30 +137,206 @@ const mockNotifications = [
 ];
 
 const Index = () => {
-  const [activeConversation, setActiveConversation] = useState<string | null>('1');
+  const [activeConversation, setActiveConversation] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [conversations, setConversations] = useState(mockConversations);
-  const [messages, setMessages] = useState(mockMessages);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [notifications, setNotifications] = useState(mockNotifications);
   const [activeQueue, setActiveQueue] = useState<'waiting' | 'assigned' | 'all'>('waiting');
-  const [currentQueueFilter, setCurrentQueueFilter] = useState<'waiting' | 'assigned' | 'all'>('waiting');
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [activeCustomer, setActiveCustomer] = useState<any>(null);
+  const { toast } = useToast();
 
-  const handleSelectConversation = (id: string) => {
-    setActiveConversation(id);
-    // Simulate loading messages for the selected conversation
-    console.log(`Loading conversation ${id}`);
+  // Carregar conversas do banco de dados
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      const { data: conversationsData, error } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          status,
+          created_at,
+          contacts (
+            id,
+            first_name,
+            last_name,
+            phone
+          ),
+          inboxes (
+            channel_type
+          )
+        `)
+        .eq('account_id', '00000000-0000-0000-0000-000000000000')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao carregar conversas:', error);
+        return;
+      }
+
+      const formattedConversations: Conversation[] = conversationsData?.map(conv => ({
+        id: conv.id,
+        name: conv.contacts?.last_name 
+          ? `${conv.contacts.first_name} ${conv.contacts.last_name}`
+          : conv.contacts?.first_name || conv.contacts?.phone || 'Sem nome',
+        avatar: '',
+        lastMessage: 'Nova conversa iniciada',
+        timestamp: new Date(conv.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        unreadCount: 0,
+        channel: conv.inboxes?.channel_type === 'whatsapp' ? 'whatsapp' : 'instagram',
+        status: 'online' as const,
+        queueStatus: conv.status === 'assigned' ? 'assigned' : 'waiting'
+      })) || [];
+
+      setConversations(formattedConversations);
+    } catch (error) {
+      console.error('Erro ao carregar conversas:', error);
+    }
   };
 
-  const handleSendMessage = (content: string) => {
-    const newMessage = {
-      id: Date.now().toString(),
-      content,
-      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      sender: 'user' as const,
-      status: 'delivered' as const,
-      type: 'text' as const,
-    };
-    setMessages([...messages, newMessage]);
+  const loadMessages = async (conversationId: string) => {
+    setLoadingMessages(true);
+    try {
+      const { data: messagesData, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao carregar mensagens:', error);
+        return;
+      }
+
+      const formattedMessages = messagesData?.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        timestamp: new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        sender: msg.sender_type === 'user' ? 'user' : 'customer',
+        status: 'delivered' as const,
+        type: 'text' as const
+      })) || [];
+
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Erro ao carregar mensagens:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const loadCustomerData = async (conversationId: string) => {
+    try {
+      const { data: conversationData, error } = await supabase
+        .from('conversations')
+        .select(`
+          contacts (
+            id,
+            first_name,
+            last_name,
+            phone,
+            email,
+            city,
+            country
+          ),
+          inboxes (
+            channel_type
+          )
+        `)
+        .eq('id', conversationId)
+        .single();
+
+      if (error || !conversationData?.contacts) {
+        console.error('Erro ao carregar dados do cliente:', error);
+        return;
+      }
+
+      const contact = conversationData.contacts;
+      const customer = {
+        id: contact.id,
+        name: contact.last_name 
+          ? `${contact.first_name} ${contact.last_name}`
+          : contact.first_name,
+        avatar: '',
+        phone: contact.phone,
+        email: contact.email || '',
+        location: contact.city && contact.country ? `${contact.city}, ${contact.country}` : '',
+        channel: conversationData.inboxes?.channel_type === 'whatsapp' ? 'whatsapp' : 'instagram',
+        status: 'online' as const,
+        lastSeen: 'há poucos minutos',
+        joinDate: new Date().toLocaleDateString('pt-BR'),
+        totalMessages: messages.length,
+        rating: 5,
+        tags: ['Cliente'],
+        notes: ''
+      };
+
+      setActiveCustomer(customer);
+    } catch (error) {
+      console.error('Erro ao carregar dados do cliente:', error);
+    }
+  };
+
+  const handleSelectConversation = async (id: string) => {
+    console.log(`Loading conversation ${id}`);
+    setActiveConversation(id);
+    setMessages([]); // Limpar mensagens anteriores
+    setActiveCustomer(null); // Limpar cliente anterior
+    
+    // Carregar mensagens da conversa selecionada
+    await Promise.all([
+      loadMessages(id),
+      loadCustomerData(id)
+    ]);
+  };
+
+  const handleSendMessage = async (content: string) => {
+    if (!activeConversation) return;
+
+    try {
+      const { data: newMessage, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: activeConversation,
+          content,
+          sender_type: 'user',
+          sender_id: '00000000-0000-0000-0000-000000000000' // ID do usuário atual (mock)
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: "Erro",
+          description: "Erro ao enviar mensagem",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Adicionar mensagem à lista local
+      const formattedMessage = {
+        id: newMessage.id,
+        content: newMessage.content,
+        timestamp: new Date(newMessage.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        sender: 'user' as const,
+        status: 'delivered' as const,
+        type: 'text' as const
+      };
+
+      setMessages(prev => [...prev, formattedMessage]);
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar mensagem",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleMarkNotificationAsRead = (id: string) => {
@@ -209,7 +387,7 @@ const Index = () => {
     return true; // 'all' shows everything
   });
 
-  const activeCustomer = activeConversation ? mockCustomer : null;
+  
 
   return (
     <div className="h-screen bg-gray-100 flex flex-col">
@@ -277,6 +455,7 @@ const Index = () => {
             onAssumeAttendance={handleAssumeAttendance}
             onTransferAttendance={handleTransferAttendance}
             onUpdateConversation={handleUpdateConversation}
+            onConversationListUpdated={loadConversations}
             onNewConversation={(newConversation) => {
               const conversation: Conversation = {
                 id: newConversation.id,

@@ -15,9 +15,10 @@ interface SaveContactModalProps {
   conversationName: string;
   conversationPhone?: string;
   onContactUpdated?: (conversationId: string, contactName: string) => void;
+  onConversationListUpdated?: () => void;
 }
 
-const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, conversationPhone, onContactUpdated }: SaveContactModalProps) => {
+const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, conversationPhone, onContactUpdated, onConversationListUpdated }: SaveContactModalProps) => {
   const [formData, setFormData] = useState({
     firstName: conversationName || '',
     lastName: '',
@@ -260,6 +261,11 @@ const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, c
           ? `${contact.first_name} ${contact.last_name}` 
           : contact.first_name;
         onContactUpdated(conversationId, fullName);
+      }
+
+      // Atualizar lista de conversas se callback fornecido
+      if (onConversationListUpdated) {
+        onConversationListUpdated();
       }
 
       onClose();

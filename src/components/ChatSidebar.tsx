@@ -31,9 +31,10 @@ interface ChatSidebarProps {
   onTransferAttendance?: (conversationId: string, userId: string) => void;
   onNewConversation?: (conversation: Conversation) => void;
   onUpdateConversation?: (conversationId: string, updatedData: Partial<Conversation>) => void;
+  onConversationListUpdated?: () => void;
 }
 
-const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, onAssumeAttendance, onTransferAttendance, onNewConversation, onUpdateConversation }: ChatSidebarProps) => {
+const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, onAssumeAttendance, onTransferAttendance, onNewConversation, onUpdateConversation, onConversationListUpdated }: ChatSidebarProps) => {
   const [saveContactModalOpen, setSaveContactModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -422,6 +423,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
             onUpdateConversation(conversationId, { name: contactName });
           }
         }}
+        onConversationListUpdated={onConversationListUpdated}
       />
       
       {/* Transfer Attendance Modal */}
