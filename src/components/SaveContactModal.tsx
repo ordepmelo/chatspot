@@ -119,6 +119,7 @@ const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, c
     try {
       let contact;
       let operationType = '';
+      let currentContactId = null;
 
       // Se temos um conversationId, vamos buscar o contato da conversa
       if (conversationId) {
@@ -133,119 +134,162 @@ const SaveContactModal = ({ isOpen, onClose, conversationId, conversationName, c
           throw conversationError;
         }
 
-        if (conversation?.contact_id) {
-          // Atualizar contato existente da conversa
-          const { data: updatedContact, error: updateError } = await supabase
-            .from('contacts')
-            .update({
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              email: formData.email || null,
-              phone: formData.phone,
-              city: formData.city || null,
-              country: formData.country || null,
-              biography: formData.biography || null,
-              company: formData.company || null,
-              cnpj: formData.cnpj || null,
-              instagram: formData.instagram || null,
-              facebook: formData.facebook || null,
-              linkedin: formData.linkedin || null,
-              other_social: formData.otherSocial || null,
-            })
-            .eq('id', conversation.contact_id)
-            .select()
-            .single();
+        currentContactId = conversation?.contact_id;
+      }
 
-          if (updateError) throw updateError;
-          contact = updatedContact;
-          operationType = 'atualizado';
-        }
-      } else {
-        // Verificar se já existe um contato com esse telefone
-        const { data: existingContact, error: searchError } = await supabase
+      // Verificar se já existe um contato com esse telefone (exceto o atual se estivermos editando)
+      const { data: existingPhoneContact, error: phoneSearchError } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, phone')
+        .eq('phone', formData.phone)
+        .eq('account_id', '00000000-0000-0000-0000-000000000000')
+        .neq('id', currentContactId || '00000000-0000-0000-0000-000000000000')
+        .maybeSingle();
+
+      if (phoneSearchError) {
+        console.error('Erro ao buscar contato por telefone:', phoneSearchError);
+      }
+
+      if (existingPhoneContact) {
+        toast({
+          title: "Erro",
+          description: `Já existe um contato com este telefone: ${existingPhoneContact.first_name} ${existingPhoneContact.last_name || ''}`.trim(),
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Verificar se já existe um contato com esse email (se email foi fornecido)
+      if (formData.email) {
+        const { data: existingEmailContact, error: emailSearchError } = await supabase
           .from('contacts')
-          .select('*')
-          .eq('phone', formData.phone)
+          .select('id, first_name, last_name, email')
+          .eq('email', formData.email)
           .eq('account_id', '00000000-0000-0000-0000-000000000000')
+          .neq('id', currentContactId || '00000000-0000-0000-0000-000000000000')
           .maybeSingle();
 
-        if (searchError) {
-          console.error('Erro ao buscar contato:', searchError);
+        if (emailSearchError) {
+          console.error('Erro ao buscar contato por email:', emailSearchError);
         }
 
-        if (existingContact) {
-          // Atualizar contato existente
-          const { data: updatedContact, error: updateError } = await supabase
-            .from('contacts')
-            .update({
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              email: formData.email || null,
-              city: formData.city || null,
-              country: formData.country || null,
-              biography: formData.biography || null,
-              company: formData.company || null,
-              cnpj: formData.cnpj || null,
-              instagram: formData.instagram || null,
-              facebook: formData.facebook || null,
-              linkedin: formData.linkedin || null,
-              other_social: formData.otherSocial || null,
-            })
-            .eq('id', existingContact.id)
-            .select()
-            .single();
+        if (existingEmailContact) {
+          toast({
+            title: "Erro",
+            description: `Já existe um contato com este email: ${existingEmailContact.first_name} ${existingEmailContact.last_name || ''}`.trim(),
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+      }
 
-          if (updateError) throw updateError;
-          contact = updatedContact;
-          operationType = 'atualizado';
-        } else {
-          // Criar novo contato
-          const { data: newContact, error: insertError } = await supabase
-            .from('contacts')
-            .insert({
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              email: formData.email || null,
-              phone: formData.phone,
-              city: formData.city || null,
-              country: formData.country || null,
-              biography: formData.biography || null,
-              company: formData.company || null,
-              cnpj: formData.cnpj || null,
-              instagram: formData.instagram || null,
-              facebook: formData.facebook || null,
-              linkedin: formData.linkedin || null,
-              other_social: formData.otherSocial || null,
-              account_id: '00000000-0000-0000-0000-000000000000'
-            })
-            .select()
-            .single();
+      // Se temos um conversationId, atualizamos o contato existente
+      if (conversationId && currentContactId) {
+        const { data: updatedContact, error: updateError } = await supabase
+          .from('contacts')
+          .update({
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            email: formData.email || null,
+            phone: formData.phone,
+            city: formData.city || null,
+            country: formData.country || null,
+            biography: formData.biography || null,
+            company: formData.company || null,
+            cnpj: formData.cnpj || null,
+            instagram: formData.instagram || null,
+            facebook: formData.facebook || null,
+            linkedin: formData.linkedin || null,
+            other_social: formData.otherSocial || null,
+          })
+          .eq('id', currentContactId)
+          .select()
+          .single();
 
-          if (insertError) throw insertError;
-          contact = newContact;
-          operationType = 'salvo';
+        if (updateError) throw updateError;
+        contact = updatedContact;
+        operationType = 'atualizado';
+      } else {
+        // Verificar se já existe uma conversa com esse telefone
+        const { data: existingConversation, error: conversationSearchError } = await supabase
+          .from('conversations')
+          .select(`
+            id,
+            contacts (
+              first_name,
+              last_name,
+              phone
+            )
+          `)
+          .eq('account_id', '00000000-0000-0000-0000-000000000000')
+          .not('contact_id', 'is', null);
 
-          // Se não há conversa vinculada, criar uma nova
-          if (!conversationId) {
-            // Buscar inbox padrão do WhatsApp
-            const { data: inboxData } = await supabase
-              .from('inboxes')
-              .select('*')
-              .eq('channel_type', 'whatsapp')
-              .eq('account_id', '00000000-0000-0000-0000-000000000000')
-              .maybeSingle();
+        if (conversationSearchError) {
+          console.error('Erro ao buscar conversas:', conversationSearchError);
+        }
 
-            if (inboxData) {
-              // Criar nova conversa
-              await supabase
-                .from('conversations')
-                .insert({
-                  contact_id: contact.id,
-                  inbox_id: inboxData.id,
-                  account_id: '00000000-0000-0000-0000-000000000000',
-                  status: 'assigned'
-                });
-            }
+        const duplicateConversation = existingConversation?.find(conv => 
+          conv.contacts?.phone === formData.phone
+        );
+
+        if (duplicateConversation) {
+          toast({
+            title: "Erro", 
+            description: `Já existe uma conversa com este telefone: ${duplicateConversation.contacts?.first_name} ${duplicateConversation.contacts?.last_name || ''}`.trim(),
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Criar novo contato
+        const { data: newContact, error: insertError } = await supabase
+          .from('contacts')
+          .insert({
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            email: formData.email || null,
+            phone: formData.phone,
+            city: formData.city || null,
+            country: formData.country || null,
+            biography: formData.biography || null,
+            company: formData.company || null,
+            cnpj: formData.cnpj || null,
+            instagram: formData.instagram || null,
+            facebook: formData.facebook || null,
+            linkedin: formData.linkedin || null,
+            other_social: formData.otherSocial || null,
+            account_id: '00000000-0000-0000-0000-000000000000'
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        contact = newContact;
+        operationType = 'salvo';
+
+        // Se não há conversa vinculada, criar uma nova
+        if (!conversationId) {
+          // Buscar inbox padrão do WhatsApp
+          const { data: inboxData } = await supabase
+            .from('inboxes')
+            .select('*')
+            .eq('channel_type', 'whatsapp')
+            .eq('account_id', '00000000-0000-0000-0000-000000000000')
+            .maybeSingle();
+
+          if (inboxData) {
+            // Criar nova conversa
+            await supabase
+              .from('conversations')
+              .insert({
+                contact_id: contact.id,
+                inbox_id: inboxData.id,
+                account_id: '00000000-0000-0000-0000-000000000000',
+                status: 'assigned'
+              });
           }
         }
       }
