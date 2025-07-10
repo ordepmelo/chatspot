@@ -76,19 +76,38 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
     try {
       console.log('Iniciando conversa com:', phoneNumber.trim());
 
-      // Primeiro, verificar se já existe um contato com esse número
-      const { data: existingContact, error: searchError } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('phone', phoneNumber.trim())
-        .eq('account_id', '00000000-0000-0000-0000-000000000000')
-        .maybeSingle();
-
-      console.log('Resultado busca contato:', { existingContact, searchError });
-
-      if (searchError) {
-        console.error('Erro ao buscar contato existente:', searchError);
+      // Verificar se é email ou telefone
+      const isEmail = phoneNumber.includes('@');
+      
+      // Buscar contato existente
+      let existingContact = null;
+      if (isEmail) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('*')
+          .eq('email', phoneNumber.trim())
+          .eq('account_id', '00000000-0000-0000-0000-000000000000')
+          .maybeSingle();
+        
+        if (error && error.code !== 'PGRST116') {
+          console.error('Erro ao buscar contato por email:', error);
+        }
+        existingContact = data;
+      } else {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('*')
+          .eq('phone', phoneNumber.trim())
+          .eq('account_id', '00000000-0000-0000-0000-000000000000')
+          .maybeSingle();
+        
+        if (error && error.code !== 'PGRST116') {
+          console.error('Erro ao buscar contato por telefone:', error);
+        }
+        existingContact = data;
       }
+
+      console.log('Resultado busca contato:', { existingContact });
 
       // Se existe contato, verificar se já tem conversa ativa
       if (existingContact) {
@@ -117,46 +136,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         }
       }
 
-      // Verificar por email se fornecido (assumindo que o campo pode conter email)
-      if (phoneNumber.includes('@')) {
-        const { data: contactByEmail, error: emailSearchError } = await supabase
-          .from('contacts')
-          .select('*')
-          .eq('email', phoneNumber.trim())
-          .eq('account_id', '00000000-0000-0000-0000-000000000000')
-          .maybeSingle();
-
-        if (emailSearchError) {
-          console.error('Erro ao buscar contato por email:', emailSearchError);
-        }
-
-        if (contactByEmail) {
-          const { data: activeConversations, error: convSearchError } = await supabase
-            .from('conversations')
-            .select('id, status')
-            .eq('contact_id', contactByEmail.id)
-            .eq('account_id', '00000000-0000-0000-0000-000000000000')
-            .in('status', ['open', 'assigned']);
-
-          if (convSearchError) {
-            console.error('Erro ao buscar conversas ativas por email:', convSearchError);
-          }
-
-          if (activeConversations && activeConversations.length > 0) {
-            const contactName = contactByEmail.last_name 
-              ? `${contactByEmail.first_name} ${contactByEmail.last_name}`
-              : contactByEmail.first_name;
-            
-            toast({
-              title: "Conversa já existe",
-              description: `Já existe uma conversa ativa com ${contactName} (${contactByEmail.email}). Finalize a conversa atual antes de iniciar uma nova.`,
-              variant: "destructive",
-            });
-            return;
-          }
-        }
-      }
-
       let contactData;
       let contactName;
 
@@ -173,15 +152,22 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         });
       } else {
         console.log('Criando novo contato...');
-        // Criar novo contato com o número como nome
+        // Criar novo contato
+        const contactInsert = {
+          first_name: phoneNumber.trim(),
+          account_id: '00000000-0000-0000-0000-000000000000'
+        } as any;
+
+        if (isEmail) {
+          contactInsert.email = phoneNumber.trim();
+          contactInsert.phone = ''; // Campo obrigatório, usar string vazia
+        } else {
+          contactInsert.phone = phoneNumber.trim();
+        }
+
         const { data: newContact, error: contactError } = await supabase
           .from('contacts')
-          .insert({
-            phone: phoneNumber.includes('@') ? '' : phoneNumber.trim(),
-            email: phoneNumber.includes('@') ? phoneNumber.trim() : null,
-            first_name: phoneNumber.trim(), // Nome será o próprio número/email até ser editado
-            account_id: '00000000-0000-0000-0000-000000000000'
-          })
+          .insert(contactInsert)
           .select()
           .single();
 
@@ -189,11 +175,21 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
 
         if (contactError) {
           console.error('Erro ao criar contato:', contactError);
-          toast({
-            title: "Erro",
-            description: `Erro ao criar contato: ${contactError.message}`,
-            variant: "destructive",
-          });
+          
+          // Se for erro de duplicata, informar ao usuário
+          if (contactError.code === '23505') {
+            toast({
+              title: "Erro",
+              description: "Já existe um contato com esse telefone/email.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Erro",
+              description: `Erro ao criar contato: ${contactError.message}`,
+              variant: "destructive",
+            });
+          }
           return;
         }
 
