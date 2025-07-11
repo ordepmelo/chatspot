@@ -20,7 +20,10 @@ interface Conversation {
   unreadCount: number;
   channel: 'whatsapp' | 'instagram';
   status: 'online' | 'offline';
-  queueStatus: 'waiting' | 'assigned' | 'all';
+  queueStatus: 'waiting' | 'assigned' | 'all' | 'resolved';
+  urgent?: boolean;
+  pinned?: boolean;
+  closed_at?: string;
 }
 
 // Mock data
@@ -160,6 +163,9 @@ const Index = () => {
           id,
           status,
           created_at,
+          urgent,
+          pinned,
+          closed_at,
           contacts (
             id,
             first_name,
@@ -178,7 +184,7 @@ const Index = () => {
         return;
       }
 
-      const formattedConversations: Conversation[] = conversationsData?.map(conv => ({
+      const formattedConversations: Conversation[] = conversationsData?.map((conv: any) => ({
         id: conv.id,
         name: conv.contacts?.last_name 
           ? `${conv.contacts.first_name} ${conv.contacts.last_name}`
@@ -189,7 +195,10 @@ const Index = () => {
         unreadCount: 0,
         channel: conv.inboxes?.channel_type === 'whatsapp' ? 'whatsapp' : 'instagram',
         status: 'online' as const,
-        queueStatus: conv.status === 'assigned' ? 'assigned' : 'waiting'
+        queueStatus: conv.status === 'resolved' ? 'resolved' : (conv.status === 'assigned' ? 'assigned' : 'waiting'),
+        urgent: conv.urgent || false,
+        pinned: conv.pinned || false,
+        closed_at: conv.closed_at
       })) || [];
 
       setConversations(formattedConversations);
@@ -387,7 +396,10 @@ const Index = () => {
     try {
       const { error } = await supabase
         .from('conversations')
-        .update({ status: 'resolved' })
+        .update({ 
+          status: 'resolved',
+          closed_at: new Date().toISOString()
+        })
         .eq('id', activeConversation);
 
       if (error) {
@@ -401,7 +413,10 @@ const Index = () => {
       }
 
       // Atualizar a conversa na lista
-      handleUpdateConversation(activeConversation, { queueStatus: 'resolved' as any });
+      handleUpdateConversation(activeConversation, { 
+        queueStatus: 'resolved' as any,
+        closed_at: new Date().toISOString()
+      });
 
       // Limpar conversa ativa
       setActiveConversation(null);
@@ -420,6 +435,51 @@ const Index = () => {
       toast({
         title: "Erro",
         description: "Erro inesperado ao finalizar conversa",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleReopenConversation = async (customerId: string) => {
+    if (!activeConversation) return;
+    
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ 
+          status: 'assigned',
+          closed_at: null
+        })
+        .eq('id', activeConversation);
+
+      if (error) {
+        console.error('Erro ao reabrir conversa:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao reabrir conversa",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Atualizar a conversa na lista
+      handleUpdateConversation(activeConversation, { 
+        queueStatus: 'assigned' as any,
+        closed_at: undefined
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Conversa reaberta com sucesso"
+      });
+
+      // Recarregar conversas
+      loadConversations();
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao reabrir conversa",
         variant: "destructive"
       });
     }
@@ -524,6 +584,8 @@ const Index = () => {
           messages={messages}
           onSendMessage={handleSendMessage}
           onFinishConversation={handleFinishConversation}
+          onReopenConversation={handleReopenConversation}
+          conversationStatus={conversations.find(c => c.id === activeConversation)?.queueStatus}
         />
         
         {showProfile && (

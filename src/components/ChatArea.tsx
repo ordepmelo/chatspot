@@ -42,9 +42,11 @@ interface ChatAreaProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
   onFinishConversation?: (customerId: string) => void;
+  onReopenConversation?: (customerId: string) => void;
+  conversationStatus?: 'resolved' | 'open' | 'assigned' | 'waiting' | 'all';
 }
 
-const ChatArea = ({ customer, messages, onSendMessage, onFinishConversation }: ChatAreaProps) => {
+const ChatArea = ({ customer, messages, onSendMessage, onFinishConversation, onReopenConversation, conversationStatus }: ChatAreaProps) => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -148,15 +150,27 @@ const ChatArea = ({ customer, messages, onSendMessage, onFinishConversation }: C
             <Button variant="ghost" size="sm">
               <Video className="w-4 h-4" />
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="text-red-600 border-red-300 hover:bg-red-50"
-              onClick={() => onFinishConversation?.(customer.id)}
-            >
-              <X className="w-4 h-4 mr-1" />
-              Finalizar Atendimento
-            </Button>
+            {conversationStatus === 'resolved' ? (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-green-600 border-green-300 hover:bg-green-50"
+                onClick={() => onReopenConversation?.(customer.id)}
+              >
+                <Check className="w-4 h-4 mr-1" />
+                Reabrir Atendimento
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-red-600 border-red-300 hover:bg-red-50"
+                onClick={() => onFinishConversation?.(customer.id)}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Finalizar Atendimento
+              </Button>
+            )}
           </div>
         </div>
       </div>

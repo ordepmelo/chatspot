@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Instagram, Search, MoreVertical, UserPlus, UserCheck, ArrowRightLeft, X, Clock } from 'lucide-react';
+import { MessageCircle, Instagram, Search, MoreVertical, UserPlus, UserCheck, ArrowRightLeft, X, Clock, AlertTriangle, Pin, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import SaveContactModal from './SaveContactModal';
@@ -20,7 +19,10 @@ interface Conversation {
   unreadCount: number;
   channel: 'whatsapp' | 'instagram';
   status: 'online' | 'offline';
-  queueStatus?: 'waiting' | 'assigned' | 'all';
+  queueStatus?: 'waiting' | 'assigned' | 'all' | 'resolved';
+  urgent?: boolean;
+  pinned?: boolean;
+  closed_at?: string;
 }
 
 interface ChatSidebarProps {
@@ -39,6 +41,12 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
+  const [filters, setFilters] = useState({
+    showClosed: false,
+    sortOldestFirst: false,
+    urgentFirst: false,
+  });
   const { toast } = useToast();
 
   const handleSaveContact = (conversation: Conversation) => {
@@ -67,7 +75,10 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
     try {
       const { error } = await supabase
         .from('conversations')
-        .update({ status: 'resolved' })
+        .update({ 
+          status: 'resolved',
+          closed_at: new Date().toISOString()
+        })
         .eq('id', conversation.id);
 
       if (error) {
@@ -80,9 +91,11 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         return;
       }
 
-      // Atualizar a conversa na lista
       if (onUpdateConversation) {
-        onUpdateConversation(conversation.id, { queueStatus: 'resolved' as any });
+        onUpdateConversation(conversation.id, { 
+          queueStatus: 'resolved' as any,
+          closed_at: new Date().toISOString()
+        });
       }
 
       toast({
@@ -90,7 +103,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         description: "Conversa finalizada com sucesso",
       });
 
-      // Atualizar lista de conversas
       if (onConversationListUpdated) {
         onConversationListUpdated();
       }
@@ -124,7 +136,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         return;
       }
 
-      // Atualizar a conversa na lista
       if (onUpdateConversation) {
         onUpdateConversation(conversation.id, { queueStatus: 'waiting' });
       }
@@ -134,7 +145,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         description: "Conversa enviada para fila de aguardo",
       });
 
-      // Atualizar lista de conversas
       if (onConversationListUpdated) {
         onConversationListUpdated();
       }
@@ -143,6 +153,84 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
       toast({
         title: "Erro",
         description: "Erro inesperado ao enviar para fila",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMarkAsUrgent = async (conversation: Conversation) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ urgent: !conversation.urgent })
+        .eq('id', conversation.id);
+
+      if (error) {
+        console.error('Erro ao marcar como urgente:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao marcar conversa como urgente",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (onUpdateConversation) {
+        onUpdateConversation(conversation.id, { urgent: !conversation.urgent });
+      }
+
+      toast({
+        title: "Sucesso",
+        description: conversation.urgent ? "Conversa desmarcada como urgente" : "Conversa marcada como urgente",
+      });
+
+      if (onConversationListUpdated) {
+        onConversationListUpdated();
+      }
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao marcar como urgente",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePinConversation = async (conversation: Conversation) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ pinned: !conversation.pinned })
+        .eq('id', conversation.id);
+
+      if (error) {
+        console.error('Erro ao fixar conversa:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao fixar conversa no topo",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (onUpdateConversation) {
+        onUpdateConversation(conversation.id, { pinned: !conversation.pinned });
+      }
+
+      toast({
+        title: "Sucesso",
+        description: conversation.pinned ? "Conversa removida do topo" : "Conversa fixada no topo",
+      });
+
+      if (onConversationListUpdated) {
+        onConversationListUpdated();
+      }
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao fixar conversa",
         variant: "destructive",
       });
     }
@@ -161,10 +249,8 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
     try {
       console.log('Iniciando conversa com:', phoneNumber.trim());
 
-      // Verificar se é email ou telefone
       const isEmail = phoneNumber.includes('@');
       
-      // Buscar contato existente
       let existingContact = null;
       if (isEmail) {
         const { data, error } = await supabase
@@ -194,14 +280,13 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
 
       console.log('Resultado busca contato:', { existingContact });
 
-      // Se existe contato, verificar se já tem conversa ativa
       if (existingContact) {
         const { data: activeConversations, error: convSearchError } = await supabase
           .from('conversations')
           .select('id, status')
           .eq('contact_id', existingContact.id)
           .eq('account_id', '00000000-0000-0000-0000-000000000000')
-          .in('status', ['open', 'assigned']); // Status que indicam conversa ativa
+          .in('status', ['open', 'assigned']);
 
         if (convSearchError) {
           console.error('Erro ao buscar conversas ativas:', convSearchError);
@@ -225,7 +310,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
       let contactName;
 
       if (existingContact) {
-        // Usar contato existente
         contactData = existingContact;
         contactName = existingContact.last_name 
           ? `${existingContact.first_name} ${existingContact.last_name}`
@@ -237,7 +321,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         });
       } else {
         console.log('Criando novo contato...');
-        // Criar novo contato
         const contactInsert = {
           first_name: phoneNumber.trim(),
           account_id: '00000000-0000-0000-0000-000000000000'
@@ -245,7 +328,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
 
         if (isEmail) {
           contactInsert.email = phoneNumber.trim();
-          contactInsert.phone = ''; // Campo obrigatório, usar string vazia
+          contactInsert.phone = '';
         } else {
           contactInsert.phone = phoneNumber.trim();
         }
@@ -261,7 +344,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         if (contactError) {
           console.error('Erro ao criar contato:', contactError);
           
-          // Se for erro de duplicata, informar ao usuário
           if (contactError.code === '23505') {
             toast({
               title: "Erro",
@@ -287,7 +369,6 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         });
       }
 
-      // Buscar inbox padrão do WhatsApp
       const { data: inboxData, error: inboxError } = await supabase
         .from('inboxes')
         .select('*')
@@ -310,16 +391,13 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         return;
       }
 
-      let conversationData;
-      
-      // Criar nova conversa
       const { data: newConversationData, error: conversationError } = await supabase
         .from('conversations')
         .insert({
           contact_id: contactData.id,
           inbox_id: inboxData.id,
           account_id: '00000000-0000-0000-0000-000000000000',
-          status: 'assigned' // Status em atendimento
+          status: 'assigned'
         })
         .select()
         .single();
@@ -334,11 +412,8 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         return;
       }
 
-      conversationData = newConversationData;
-
-      // Criar nova conversa para a UI
       const uiConversation = {
-        id: conversationData.id,
+        id: newConversationData.id,
         name: contactName,
         lastMessage: 'Nova conversa iniciada',
         timestamp: 'agora',
@@ -391,27 +466,94 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
     }
   };
 
+  // Filtrar e ordenar conversas
+  const filteredConversations = conversations
+    .filter(conv => {
+      if (!filters.showClosed && conv.queueStatus === 'resolved') {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      // Fixadas no topo
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      
+      // Urgentes no topo (se filtro ativo)
+      if (filters.urgentFirst) {
+        if (a.urgent && !b.urgent) return -1;
+        if (!a.urgent && b.urgent) return 1;
+      }
+      
+      // Ordenação por data
+      if (filters.sortOldestFirst) {
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      } else {
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      }
+    });
+
   return (
     <div className="flex flex-col h-full">
-      {/* Search */}
+      {/* Search and Filter */}
       <div className="p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input 
-            placeholder="Buscar conversas..." 
-            className="pl-10 bg-gray-50 border-gray-200"
-          />
+        <div className="flex space-x-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input 
+              placeholder="Buscar conversas..." 
+              className="pl-10 bg-gray-50 border-gray-200"
+            />
+          </div>
+          <DropdownMenu open={showFilter} onOpenChange={setShowFilter}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="px-3">
+                <Filter className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <div className="p-2 space-y-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.showClosed}
+                    onChange={(e) => setFilters(prev => ({ ...prev, showClosed: e.target.checked }))}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm">Exibir conversas finalizadas</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.sortOldestFirst}
+                    onChange={(e) => setFilters(prev => ({ ...prev, sortOldestFirst: e.target.checked }))}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm">Exibir mais antigas no topo</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.urgentFirst}
+                    onChange={(e) => setFilters(prev => ({ ...prev, urgentFirst: e.target.checked }))}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm">Exibir urgentes no topo</span>
+                </label>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
-        {conversations.length === 0 ? (
+        {filteredConversations.length === 0 ? (
           <div className="p-4 text-center text-gray-500 text-sm">
             Nenhuma conversa encontrada
           </div>
         ) : (
-          conversations.map((conversation) => (
+          filteredConversations.map((conversation) => (
             <div
               key={conversation.id}
               onClick={() => onSelectConversation(conversation.id)}
@@ -437,9 +579,22 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-semibold text-sm text-gray-900 truncate">
-                      {conversation.name}
-                    </h3>
+                    <div className="flex items-center space-x-1 flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm text-gray-900 truncate">
+                        {conversation.name}
+                      </h3>
+                      {conversation.pinned && (
+                        <Pin className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                      )}
+                      {conversation.urgent && (
+                        <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      )}
+                      {conversation.queueStatus === 'resolved' && (
+                        <Badge variant="secondary" className="text-xs px-1 py-0">
+                          Finalizada
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-500">{conversation.timestamp}</span>
                       <DropdownMenu>
@@ -500,7 +655,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
                                     <Clock className="mr-2 h-4 w-4" />
                                     Enviar para Fila
                                   </DropdownMenuItem>
-                                  
+
                                   <DropdownMenuItem 
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -509,6 +664,28 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
                                   >
                                     <X className="mr-2 h-4 w-4" />
                                     Finalizar Atendimento
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator />
+
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMarkAsUrgent(conversation);
+                                    }}
+                                  >
+                                    <AlertTriangle className="mr-2 h-4 w-4" />
+                                    {conversation.urgent ? 'Desmarcar como urgente' : 'Marcar como urgente'}
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePinConversation(conversation);
+                                    }}
+                                  >
+                                    <Pin className="mr-2 h-4 w-4" />
+                                    {conversation.pinned ? 'Desfixar do topo' : 'Fixar no topo'}
                                   </DropdownMenuItem>
                                 </>
                               )}
@@ -519,19 +696,18 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
                     </div>
                   </div>
                   
-                  <p className="text-sm text-gray-600 truncate mb-2">
+                  <p className="text-sm text-gray-600 truncate mb-1">
                     {conversation.lastMessage}
                   </p>
                   
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400 capitalize">
-                      {conversation.channel}
-                    </span>
-                    {conversation.unreadCount > 0 && (
-                      <Badge className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 text-xs rounded-full">
-                        {conversation.unreadCount}
-                      </Badge>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      {conversation.unreadCount > 0 && (
+                        <Badge className="bg-blue-500 text-white px-2 py-1 text-xs min-w-[20px] h-5 flex items-center justify-center rounded-full">
+                          {conversation.unreadCount}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -540,47 +716,38 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         )}
       </div>
 
-      {/* Phone Input - Fixed at bottom */}
-      <div className="p-3 border-t border-gray-200 bg-gray-50 sticky bottom-0">
-        <div className="flex items-center space-x-2">
-          <Input 
-            placeholder="DDD + Telefone" 
-            className="flex-1 h-8 text-sm"
+      {/* Start Conversation - Fixed position */}
+      <div className="sticky bottom-0 p-4 border-t border-gray-200 bg-white">
+        <div className="flex space-x-2">
+          <Input
+            placeholder="Telefone ou email"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
+            className="flex-1"
           />
           <Button 
-            size="sm" 
-            className="h-8 px-3 text-xs whitespace-nowrap"
             onClick={handleStartConversation}
+            className="bg-green-500 hover:bg-green-600 text-white"
           >
-            Iniciar conversa
+            Iniciar
           </Button>
         </div>
       </div>
 
-      {/* Save Contact Modal */}
+      {/* Modals */}
       <SaveContactModal
-        isOpen={saveContactModalOpen}
-        onClose={() => setSaveContactModalOpen(false)}
         conversationId={selectedConversation?.id || ''}
         conversationName={selectedConversation?.name || ''}
-        conversationPhone=""
-        onContactUpdated={(conversationId, contactName) => {
-          if (onUpdateConversation) {
-            onUpdateConversation(conversationId, { name: contactName });
-          }
-        }}
-        onConversationListUpdated={onConversationListUpdated}
+        isOpen={saveContactModalOpen}
+        onClose={() => setSaveContactModalOpen(false)}
       />
       
-      {/* Transfer Attendance Modal */}
       <TransferAttendanceModal
         isOpen={transferModalOpen}
         onClose={() => setTransferModalOpen(false)}
+        onTransfer={handleTransferConfirm}
         conversationId={selectedConversation?.id || ''}
         conversationName={selectedConversation?.name || ''}
-        onTransfer={handleTransferConfirm}
       />
     </div>
   );

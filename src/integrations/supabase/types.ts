@@ -101,29 +101,38 @@ export type Database = {
         Row: {
           account_id: string
           assignee_id: string | null
+          closed_at: string | null
           contact_id: string | null
           created_at: string
           id: string
           inbox_id: string
+          pinned: boolean | null
           status: string
+          urgent: boolean | null
         }
         Insert: {
           account_id: string
           assignee_id?: string | null
+          closed_at?: string | null
           contact_id?: string | null
           created_at?: string
           id?: string
           inbox_id: string
+          pinned?: boolean | null
           status?: string
+          urgent?: boolean | null
         }
         Update: {
           account_id?: string
           assignee_id?: string | null
+          closed_at?: string | null
           contact_id?: string | null
           created_at?: string
           id?: string
           inbox_id?: string
+          pinned?: boolean | null
           status?: string
+          urgent?: boolean | null
         }
         Relationships: [
           {
