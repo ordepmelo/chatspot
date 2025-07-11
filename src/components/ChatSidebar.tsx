@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Instagram, Search, MoreVertical, UserPlus, UserCheck, ArrowRightLeft } from 'lucide-react';
+import { MessageCircle, Instagram, Search, MoreVertical, UserPlus, UserCheck, ArrowRightLeft, X, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import SaveContactModal from './SaveContactModal';
@@ -60,6 +60,91 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
   const handleTransferConfirm = (conversationId: string, userId: string) => {
     if (onTransferAttendance) {
       onTransferAttendance(conversationId, userId);
+    }
+  };
+
+  const handleFinishConversation = async (conversation: Conversation) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ status: 'resolved' })
+        .eq('id', conversation.id);
+
+      if (error) {
+        console.error('Erro ao finalizar conversa:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao finalizar conversa",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Atualizar a conversa na lista
+      if (onUpdateConversation) {
+        onUpdateConversation(conversation.id, { queueStatus: 'resolved' as any });
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Conversa finalizada com sucesso",
+      });
+
+      // Atualizar lista de conversas
+      if (onConversationListUpdated) {
+        onConversationListUpdated();
+      }
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao finalizar conversa",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendToQueue = async (conversation: Conversation) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ 
+          status: 'open',
+          assignee_id: null 
+        })
+        .eq('id', conversation.id);
+
+      if (error) {
+        console.error('Erro ao enviar para fila:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao enviar conversa para fila",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Atualizar a conversa na lista
+      if (onUpdateConversation) {
+        onUpdateConversation(conversation.id, { queueStatus: 'waiting' });
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Conversa enviada para fila de aguardo",
+      });
+
+      // Atualizar lista de conversas
+      if (onConversationListUpdated) {
+        onConversationListUpdated();
+      }
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao enviar para fila",
+        variant: "destructive",
+      });
     }
   };
 
@@ -403,6 +488,30 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
                                 <ArrowRightLeft className="mr-2 h-4 w-4" />
                                 Transferir Atendimento
                               </DropdownMenuItem>
+
+                              {conversation.queueStatus === 'assigned' && (
+                                <>
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSendToQueue(conversation);
+                                    }}
+                                  >
+                                    <Clock className="mr-2 h-4 w-4" />
+                                    Enviar para Fila
+                                  </DropdownMenuItem>
+                                  
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleFinishConversation(conversation);
+                                    }}
+                                  >
+                                    <X className="mr-2 h-4 w-4" />
+                                    Finalizar Atendimento
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </>
                           )}
                         </DropdownMenuContent>
@@ -431,8 +540,8 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
         )}
       </div>
 
-      {/* Phone Input */}
-      <div className="p-3 border-t border-gray-200 bg-gray-50">
+      {/* Phone Input - Fixed at bottom */}
+      <div className="p-3 border-t border-gray-200 bg-gray-50 sticky bottom-0">
         <div className="flex items-center space-x-2">
           <Input 
             placeholder="DDD + Telefone" 
@@ -442,7 +551,7 @@ const ChatSidebar = ({ conversations, activeConversation, onSelectConversation, 
           />
           <Button 
             size="sm" 
-            className="h-8 px-3 text-xs"
+            className="h-8 px-3 text-xs whitespace-nowrap"
             onClick={handleStartConversation}
           >
             Iniciar conversa

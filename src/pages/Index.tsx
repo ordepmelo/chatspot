@@ -381,6 +381,50 @@ const Index = () => {
     // Aqui você pode implementar a lógica de transferência quando o sistema de usuários estiver pronto
   };
 
+  const handleFinishConversation = async (customerId: string) => {
+    if (!activeConversation) return;
+    
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ status: 'resolved' })
+        .eq('id', activeConversation);
+
+      if (error) {
+        console.error('Erro ao finalizar conversa:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao finalizar conversa",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Atualizar a conversa na lista
+      handleUpdateConversation(activeConversation, { queueStatus: 'resolved' as any });
+
+      // Limpar conversa ativa
+      setActiveConversation(null);
+      setActiveCustomer(null);
+      setMessages([]);
+
+      toast({
+        title: "Sucesso",
+        description: "Conversa finalizada com sucesso"
+      });
+
+      // Recarregar conversas
+      loadConversations();
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao finalizar conversa",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredConversations = conversations.filter(conversation => {
     if (activeQueue === 'waiting') return conversation.queueStatus === 'waiting';
     if (activeQueue === 'assigned') return conversation.queueStatus === 'assigned';
@@ -479,6 +523,7 @@ const Index = () => {
           customer={activeCustomer}
           messages={messages}
           onSendMessage={handleSendMessage}
+          onFinishConversation={handleFinishConversation}
         />
         
         {showProfile && (

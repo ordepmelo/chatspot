@@ -10,7 +10,7 @@ import {
   Smile, 
   Phone, 
   Video, 
-  MoreVertical,
+  X,
   MessageCircle,
   Instagram,
   Check,
@@ -41,9 +41,10 @@ interface ChatAreaProps {
   customer: Customer | null;
   messages: Message[];
   onSendMessage: (content: string) => void;
+  onFinishConversation?: (customerId: string) => void;
 }
 
-const ChatArea = ({ customer, messages, onSendMessage }: ChatAreaProps) => {
+const ChatArea = ({ customer, messages, onSendMessage, onFinishConversation }: ChatAreaProps) => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -147,8 +148,14 @@ const ChatArea = ({ customer, messages, onSendMessage }: ChatAreaProps) => {
             <Button variant="ghost" size="sm">
               <Video className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm">
-              <MoreVertical className="w-4 h-4" />
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="text-red-600 border-red-300 hover:bg-red-50"
+              onClick={() => onFinishConversation?.(customer.id)}
+            >
+              <X className="w-4 h-4 mr-1" />
+              Finalizar Atendimento
             </Button>
           </div>
         </div>
